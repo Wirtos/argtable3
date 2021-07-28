@@ -35,6 +35,7 @@
 
 #include <stdio.h> /* FILE */
 #include <time.h>  /* struct tm */
+#include "argtable3_export.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,18 +52,6 @@ extern "C" {
 
 /* bit masks for arg_hdr.flag */
 enum { ARG_TERMINATOR = 0x1, ARG_HASVALUE = 0x2, ARG_HASOPTVALUE = 0x4 };
-
-#if defined(_WIN32)
-  #if defined(argtable3_EXPORTS)
-    #define ARG_EXTERN __declspec(dllexport)
-  #elif defined(argtable3_IMPORTS)
-    #define ARG_EXTERN __declspec(dllimport)
-  #else
-    #define ARG_EXTERN
-  #endif
-#else
-  #define ARG_EXTERN
-#endif
 
 typedef struct _internal_arg_dstr* arg_dstr_t;
 typedef void* arg_cmd_itr_t;

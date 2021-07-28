@@ -28,77 +28,84 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ################################################################################
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.12)
 
-set(ARGTABLE3_PROJECT_NAME "argtable3")
-set(ARGTABLE3_PACKAGE_NAME "Argtable3")
-
-project(${ARGTABLE3_PROJECT_NAME} "C")
+project(argtable3 LANGUAGES C)
 
 option(BUILD_SHARED_LIBS "Build shared library" OFF)
-option(ARGTABLE3_ENABLE_CONAN "Enable Conan dependency manager" OFF)
 option(ARGTABLE3_ENABLE_TESTS "Enable unit tests" ON)
 option(ARGTABLE3_ENABLE_EXAMPLES "Enable examples" ON)
 option(ARGTABLE3_ENABLE_ARG_REX_DEBUG "Enable arg_rex debug output" OFF)
 option(ARGTABLE3_REPLACE_GETOPT "Replace getopt in the system C library" ON)
 option(ARGTABLE3_LONG_ONLY "Use getopt_long_only instead of getopt_long" OFF)
 
-get_filename_component(VERSION_TAG_PATH "version.tag" ABSOLUTE)
-if(EXISTS ${VERSION_TAG_PATH})
-  file(READ version.tag VERSION_TAG OFFSET 1)
-  string(REPLACE "." ";" VERSION_LIST ${VERSION_TAG})
-  list(GET VERSION_LIST 0 PROJECT_VERSION_MAJOR)
-  list(GET VERSION_LIST 1 PROJECT_VERSION_MINOR)
-  list(GET VERSION_LIST 2 PROJECT_VERSION_PATCH)
-  list(GET VERSION_LIST 3 PROJECT_VERSION_BUILD)
-else()
-  set(PROJECT_VERSION_MAJOR 0)
-  set(PROJECT_VERSION_MINOR 0)
-  set(PROJECT_VERSION_PATCH 0)
-  set(PROJECT_VERSION_BUILD "mainline")
-endif()
-set(PROJECT_VERSION_TWEAK 0)
-set(ARGTABLE3_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}.${PROJECT_VERSION_TWEAK})
-set(ARGTABLE3_FULL_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}.${PROJECT_VERSION_BUILD})
+set(PACKAGE_NAME "argtable3")
 
-if(ARGTABLE3_ENABLE_CONAN AND EXISTS "${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
-  include("${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
-  conan_basic_setup()
-  string(REPLACE ";" ":" LINK_FLAGS "${CONAN_LIB_DIRS}")
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-rpath-link,${LINK_FLAGS}")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath-link,${LINK_FLAGS}")
-endif()
+add_library(${PROJECT_NAME}
+        src/arg_cmd.c
+        src/arg_date.c
+        src/arg_dbl.c
+        src/arg_dstr.c
+        src/arg_end.c
+        src/arg_file.c
+        src/arg_hashtable.c
+        src/arg_int.c
+        src/arg_lit.c
+        src/arg_rem.c
+        src/arg_rex.c
+        src/arg_str.c
+        src/arg_utils.c
+        src/argtable3.c
+        src/arg_getopt_long.c)
 
-set(ARGTABLE3_AMALGAMATION_SRC_FILE ${PROJECT_SOURCE_DIR}/dist/argtable3.c)
-set(ARGTABLE3_SRC_FILES
-  ${PROJECT_SOURCE_DIR}/src/arg_cmd.c
-  ${PROJECT_SOURCE_DIR}/src/arg_date.c
-  ${PROJECT_SOURCE_DIR}/src/arg_dbl.c
-  ${PROJECT_SOURCE_DIR}/src/arg_dstr.c
-  ${PROJECT_SOURCE_DIR}/src/arg_end.c
-  ${PROJECT_SOURCE_DIR}/src/arg_file.c
-  ${PROJECT_SOURCE_DIR}/src/arg_hashtable.c
-  ${PROJECT_SOURCE_DIR}/src/arg_int.c
-  ${PROJECT_SOURCE_DIR}/src/arg_lit.c
-  ${PROJECT_SOURCE_DIR}/src/arg_rem.c
-  ${PROJECT_SOURCE_DIR}/src/arg_rex.c
-  ${PROJECT_SOURCE_DIR}/src/arg_str.c
-  ${PROJECT_SOURCE_DIR}/src/arg_utils.c
-  ${PROJECT_SOURCE_DIR}/src/argtable3.c
-  ${PROJECT_SOURCE_DIR}/src/arg_getopt_long.c
-)
 
-if(APPLE)
-  set(CMAKE_MACOSX_RPATH ON)
-endif()
+target_compile_definitions(${PROJECT_NAME}
+        PRIVATE
+        $<$<BOOL:${ARGTABLE3_ENABLE_ARG_REX_DEBUG}>:ARG_REX_DEBUG>
+        $<$<NOT:$<BOOL:${ARGTABLE3_REPLACE_GETOPT}>>:ARG_REPLACE_GETOPT=0 REPLACE_GETOPT>
+        $<$<BOOL:${ARGTABLE3_LONG_ONLY}>:ARG_LONG_ONLY>
+        _XOPEN_SOURCE=700
+        )
 
-add_subdirectory(src)
 
-if(ARGTABLE3_ENABLE_EXAMPLES)
-  add_subdirectory(examples)
-endif()
+include(GenerateExportHeader)
+generate_export_header(${PROJECT_NAME}
+        EXPORT_MACRO_NAME "ARG_EXTERN"
+        )
 
-if(ARGTABLE3_ENABLE_TESTS)
-  enable_testing()
-  add_subdirectory(tests)
-endif()
+include(GNUInstallDirs)
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+        )
+
+
+set_property(TARGET ${PROJECT_NAME}
+        PROPERTY PUBLIC_HEADER
+        src/${PROJECT_NAME}.h
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_export.h"
+        )
+
+
+add_library(${PACKAGE_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+install(TARGETS ${PROJECT_NAME}
+        EXPORT ${PACKAGE_NAME}Config
+        COMPONENT ${PROJECT_NAME}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/${PROJECT_NAME}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}
+        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
+        )
+export(TARGETS
+        ${PROJECT_NAME}
+        NAMESPACE ${PACKAGE_NAME}::
+        FILE "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}Config.cmake"
+        )
+
+install(EXPORT ${PACKAGE_NAME}Config
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake"
+        NAMESPACE ${PACKAGE_NAME}::
+        )
