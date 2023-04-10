@@ -504,11 +504,11 @@ static void arg_cat(char** pdest, const char* src, size_t* pndest) {
     char* end = dest + *pndest;
 
     /*locate null terminator of dest string */
-    while (dest < end && *dest != 0)
+    while (dest < end-1 && *dest != 0)
         dest++;
 
     /* concat src string to dest string */
-    while (dest < end && *src != 0)
+    while (dest < end-1 && *src != 0)
         *dest++ = *src++;
 
     /* null terminate dest string */
@@ -663,9 +663,9 @@ void arg_print_option(FILE* fp, const char* shortopts, const char* longopts, con
  */
 static void arg_print_gnuswitch_ds(arg_dstr_t ds, struct arg_hdr** table) {
     int tabindex;
-    char* format1 = " -%c";
-    char* format2 = " [-%c";
-    char* suffix = "";
+    const char* format1 = " -%c";
+    const char* format2 = " [-%c";
+    const char* suffix = "";
 
     /* print all mandatory switches that are without argument values */
     for (tabindex = 0; table[tabindex] && !(table[tabindex]->flag & ARG_TERMINATOR); tabindex++) {
@@ -864,6 +864,86 @@ void arg_print_glossary(FILE* fp, void** argtable, const char* format) {
  * to right margin. The function does not indent the first line, but
  * only the following ones.
  *
+ * See description of arg_print_formatted below.
+ */
+static void arg_print_formatted_ds(arg_dstr_t ds, const unsigned lmargin, const unsigned rmargin, const char* text) {
+    const unsigned int textlen = (unsigned int)strlen(text);
+    unsigned int line_start = 0;
+    unsigned int line_end = textlen;
+    const unsigned int colwidth = (rmargin - lmargin) + 1;
+
+    assert(strlen(text) < UINT_MAX);
+
+    /* Someone doesn't like us... */
+    if (line_end < line_start) {
+        arg_dstr_catf(ds, "%s\n", text);
+    }
+
+    while (line_end > line_start) {
+        /* Eat leading white spaces. This is essential because while
+           wrapping lines, there will often be a whitespace at beginning
+           of line. Preserve newlines */
+        while (isspace((int)(*(text + line_start))) && *(text + line_start) != '\n') {
+            line_start++;
+        }
+
+        /* Find last whitespace, that fits into line */
+        if (line_end - line_start > colwidth) {
+            line_end = line_start + colwidth;
+
+            while ((line_end > line_start) && !isspace((int)(*(text + line_end)))) {
+                line_end--;
+            }
+
+            /* If no whitespace could be found, eg. the text is one long word, break the word */
+            if (line_end == line_start) {
+                /* Set line_end to previous value */
+                line_end = line_start + colwidth;
+            } else {
+                /* Consume trailing spaces, except newlines */
+                while ((line_end > line_start) && isspace((int)(*(text + line_end))) && *(text + line_start) != '\n') {
+                    line_end--;
+                }
+
+                /* Restore the last non-space character */
+                line_end++;
+            }
+        }
+
+        /* Output line of text */
+        while (line_start < line_end) {
+            char c = *(text + line_start);
+
+            /* If character is newline stop printing, skip this character, as a newline will be printed below. */
+            if (c == '\n') {
+                line_start++;
+                break;
+            }
+
+            arg_dstr_catc(ds, c);
+            line_start++;
+        }
+        arg_dstr_cat(ds, "\n");
+
+        /* Initialize another line */
+        if (line_end < textlen) {
+            unsigned i;
+
+            for (i = 0; i < lmargin; i++) {
+                arg_dstr_cat(ds, " ");
+            }
+
+            line_end = textlen;
+        }
+    } /* lines of text */
+}
+
+/**
+ * Print a piece of text formatted, which means in a column with a
+ * left and a right margin. The lines are wrapped at whitspaces next
+ * to right margin. The function does not indent the first line, but
+ * only the following ones.
+ *
  * Example:
  * arg_print_formatted( fp, 0, 5, "Some text that doesn't fit." )
  * will result in the following output:
@@ -890,63 +970,11 @@ void arg_print_glossary(FILE* fp, void** argtable, const char* format) {
  *
  * Author: Uli Fouquet
  */
-static void arg_print_formatted_ds(arg_dstr_t ds, const unsigned lmargin, const unsigned rmargin, const char* text) {
-    const unsigned int textlen = (unsigned int)strlen(text);
-    unsigned int line_start = 0;
-    unsigned int line_end = textlen;
-    const unsigned int colwidth = (rmargin - lmargin) + 1;
-
-    assert(strlen(text) < UINT_MAX);
-
-    /* Someone doesn't like us... */
-    if (line_end < line_start) {
-        arg_dstr_catf(ds, "%s\n", text);
-    }
-
-    while (line_end > line_start) {
-        /* Eat leading white spaces. This is essential because while
-           wrapping lines, there will often be a whitespace at beginning
-           of line */
-        while (isspace((int)(*(text + line_start)))) {
-            line_start++;
-        }
-
-        /* Find last whitespace, that fits into line */
-        if (line_end - line_start > colwidth) {
-            line_end = line_start + colwidth;
-
-            while ((line_end > line_start) && !isspace((int)(*(text + line_end)))) {
-                line_end--;
-            }
-
-            /* Consume trailing spaces */
-            while ((line_end > line_start) && isspace((int)(*(text + line_end)))) {
-                line_end--;
-            }
-
-            /* Restore the last non-space character */
-            line_end++;
-        }
-
-        /* Output line of text */
-        while (line_start < line_end) {
-            char c = *(text + line_start);
-            arg_dstr_catc(ds, c);
-            line_start++;
-        }
-        arg_dstr_cat(ds, "\n");
-
-        /* Initialize another line */
-        if (line_end < textlen) {
-            unsigned i;
-
-            for (i = 0; i < lmargin; i++) {
-                arg_dstr_cat(ds, " ");
-            }
-
-            line_end = textlen;
-        }
-    } /* lines of text */
+void arg_print_formatted(FILE* fp, const unsigned lmargin, const unsigned rmargin, const char* text) {
+    arg_dstr_t ds = arg_dstr_create();
+    arg_print_formatted_ds(ds, lmargin, rmargin, text);
+    fputs(arg_dstr_cstr(ds), fp);
+    arg_dstr_destroy(ds);
 }
 
 /**

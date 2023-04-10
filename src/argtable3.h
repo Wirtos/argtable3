@@ -42,13 +42,16 @@ extern "C" {
 #endif
 
 #define ARG_REX_ICASE 1
-#define ARG_DSTR_SIZE 200
-#define ARG_CMD_NAME_LEN 100
-#define ARG_CMD_DESCRIPTION_LEN 256
 
-#ifndef ARG_REPLACE_GETOPT
-#define ARG_REPLACE_GETOPT 1 /* use the embedded getopt as the system getopt(3) */
-#endif /* ARG_REPLACE_GETOPT */
+/* Maximum length of the command name */
+#ifndef ARG_CMD_NAME_LEN
+#define ARG_CMD_NAME_LEN 100
+#endif /* ARG_CMD_NAME_LEN */
+
+/* Maximum length of the command description */
+#ifndef ARG_CMD_DESCRIPTION_LEN
+#define ARG_CMD_DESCRIPTION_LEN 256
+#endif /* ARG_CMD_DESCRIPTION_LEN */
 
 /* bit masks for arg_hdr.flag */
 enum { ARG_TERMINATOR = 0x1, ARG_HASVALUE = 0x2, ARG_HASOPTVALUE = 0x4 };
@@ -199,7 +202,7 @@ ARG_EXTERN struct arg_date* arg_date0(const char* shortopts, const char* longopt
 ARG_EXTERN struct arg_date* arg_date1(const char* shortopts, const char* longopts, const char* format, const char* datatype, const char* glossary);
 ARG_EXTERN struct arg_date* arg_daten(const char* shortopts, const char* longopts, const char* format, const char* datatype, int mincount, int maxcount, const char* glossary);
 
-ARG_EXTERN struct arg_end* arg_end(int maxerrors);
+ARG_EXTERN struct arg_end* arg_end(int maxcount);
 
 #define ARG_DSTR_STATIC ((arg_dstr_freefn*)0)
 #define ARG_DSTR_VOLATILE ((arg_dstr_freefn*)1)
@@ -220,6 +223,7 @@ ARG_EXTERN void arg_print_syntaxv_ds(arg_dstr_t ds, void** argtable, const char*
 ARG_EXTERN void arg_print_glossary_ds(arg_dstr_t ds, void** argtable, const char* format);
 ARG_EXTERN void arg_print_glossary_gnu_ds(arg_dstr_t ds, void** argtable);
 ARG_EXTERN void arg_print_errors_ds(arg_dstr_t ds, struct arg_end* end, const char* progname);
+ARG_EXTERN void arg_print_formatted(FILE *fp, const unsigned lmargin, const unsigned rmargin, const char *text);
 ARG_EXTERN void arg_freetable(void** argtable, size_t n);
 
 ARG_EXTERN arg_dstr_t arg_dstr_create(void);
